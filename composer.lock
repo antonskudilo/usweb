@@ -38,7 +38,10 @@
             "autoload": {
                 "psr-4": {
                     "Asm89\\Stack\\": "src/"
-                }
+                },
+                "files": [
+                    "app/Helpers/helpers.php"
+                ]
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [

@@ -3,13 +3,12 @@
 
 namespace App\Api;
 
-use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Request;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
-use PHPRedis;
+use Illuminate\Support\Facades\Redis as PHPRedis;
 
 class CbrRequests
 {
@@ -27,7 +26,7 @@ class CbrRequests
         try {
             $this->syncLog->pushHandler(new StreamHandler(storage_path('logs/api/cbr.log')));
         } catch (\Exception $e) {
-            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
+//            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
         }
 
         $this->setDefault();
@@ -67,19 +66,6 @@ class CbrRequests
         }
 
         return $this->controller ?? null;
-    }
-
-    /**
-     * Вернуть объект Curl клиента
-     *
-     * @return null
-     */
-    private function clientObj()
-    {
-        return new Client([
-            'base_uri' => $this->baseUri . $this->controller(),
-            'timeout'  => 2.0,
-        ]);
     }
 
     /**
@@ -152,7 +138,7 @@ class CbrRequests
                 return PHPRedis::pttl($throttleKey);
             }
         } catch (\Exception $e) {
-            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
+//            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
 
             return null;
         }
@@ -189,7 +175,7 @@ class CbrRequests
             PHPRedis::set($throttleKey, 1);
             PHPRedis::pexpire($throttleKey, $this->getThrottleExpectation());
         } catch (\Exception $e) {
-            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
+//            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
 
             return false;
         }
@@ -204,9 +190,34 @@ class CbrRequests
      */
     private function getRequestOptions()
     {
-        return [
-            'query' => $this->requestParams,
-        ];
+        if (!empty($this->requestParams)
+            && is_array($this->requestParams)
+        ) {
+            return urldecode(http_build_query($this->requestParams));
+
+        } else {
+            return [];
+        }
+    }
+
+    /**
+     * Сформировать адрес для запроса
+     *
+     * @return string
+     */
+    private function getFullPath()
+    {
+        $requestOptions = $this->getRequestOptions();
+
+        if (!empty($requestOptions)) {
+            $requestOptions = '?' . $requestOptions;
+        }
+
+        return join([
+            $this->baseUri,
+            $this->controller(),
+            $requestOptions
+        ]);
     }
 
     /**
@@ -216,10 +227,10 @@ class CbrRequests
      */
     private function sendRequest()
     {
-        $this->syncLog->withName("Cbr request")->info(http_build_query($this->getRequestOptions()));
+//        $this->syncLog->withName("Cbr request")->info(http_build_query($this->getRequestOptions()));
 
         try {
-            $response = $this->clientObj()->request($this->requestType, '', $this->getRequestOptions());
+            return simplexml_load_file($this->getFullPath());
         } catch (\Exception $e) {
             $this->syncLog->withName($this->requestType)->error($e->getMessage());
 
@@ -229,25 +240,22 @@ class CbrRequests
 
             return null;
         }
-
-        $result = json_decode($response->getBody(), true);
-        $this->syncLog->withName("Cbr response")->info(json_encode($result));
-
-        return $result;
     }
 
     /**
      * Получим курс валют на указанную дату
      *
-     * @param array $data
+     * @param string|null $date
      * @return $this
      */
-    public function getCurrencyValues(array $data = [])
+    public function getCurrenciesValues(string $date = null)
     {
         $params = [];
 
-        if (!empty($data)) {
-            $params['date_req'] = $data['date_req'];
+        if (isset($date)
+            && !empty($date)
+        ) {
+            $params['date_req'] = $date;
         }
 
         $this->setDefault([
