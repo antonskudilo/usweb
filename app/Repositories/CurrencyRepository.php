@@ -1,10 +1,8 @@
 <?php
 
-
 namespace App\Repositories;
 
 use App\Api\CbrRequests;
-
 
 class CurrencyRepository
 {
@@ -15,11 +13,10 @@ class CurrencyRepository
         $this->api = new CbrRequests();
     }
 
-    public function getCurrencyValuesThrottle()
-    {
-        return $this->api->getCurrenciesValues()->waitThrottle();
-    }
-
+    /**
+     * @param string|null $date
+     * @return array|false
+     */
     public function getCurrenciesValues(string $date = null)
     {
         $xmlObject = $this->api->getCurrenciesValues($date)->send();
@@ -28,6 +25,10 @@ class CurrencyRepository
         return $result;
     }
 
+    /**
+     * @param $xmlObject
+     * @return array|false
+     */
     public function parseCurrenciesValues($xmlObject)
     {
         if (empty($xmlObject)) {
@@ -49,5 +50,13 @@ class CurrencyRepository
         }
 
         return $result;
+    }
+
+    /**
+     * @param array $params
+     */
+    public function getCurrencyDynamics(array $params)
+    {
+
     }
 }

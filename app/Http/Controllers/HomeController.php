@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Repositories\CurrencyRepository;
 use Carbon\Carbon;
 
-
 class HomeController extends Controller
 {
     public function index()

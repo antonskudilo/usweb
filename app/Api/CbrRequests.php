@@ -1,21 +1,18 @@
 <?php
 
-
 namespace App\Api;
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Request;
-use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use Illuminate\Support\Facades\Log;
+use Monolog\Handler\StreamHandler;
 use Illuminate\Support\Facades\Redis as PHPRedis;
 
 class CbrRequests
 {
     const THROTTLE_EXPECTATION = 1000; // 1 секунда
-    public $controller;
+
+    private $controller;
     private $requestParams;
-    private $requestType = 'GET';
     private $baseUri;
     private $syncLog;
 
@@ -26,7 +23,7 @@ class CbrRequests
         try {
             $this->syncLog->pushHandler(new StreamHandler(storage_path('logs/api/cbr.log')));
         } catch (\Exception $e) {
-//            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
+            Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
         }
 
         $this->setDefault();
@@ -69,7 +66,7 @@ class CbrRequests
     }
 
     /**
-     * Отправить запрос и сформировать ответ
+     * Проверим, вышло ли время между запросами. Отправим запрос
      *
      * @return mixed|null
      */
@@ -79,11 +76,18 @@ class CbrRequests
             return null;
         }
 
+        $waitThrottle = $this->waitThrottle();
+
+        if ($waitThrottle) {
+            usleep($waitThrottle * 1000);
+        }
+
         $this->setThrottle();
+        $response = $this->getXml();
 
-        $response = $this->sendRequest();
-
-        if (!isset($response)) {
+        if (!isset($response)
+            || empty($response)
+        ) {
             return null;
         }
 
@@ -99,20 +103,16 @@ class CbrRequests
      */
     private function getThrottleRedisKey()
     {
-        $userIp = Request::ip();
+        $controller = $this->controller();
 
-        if (empty($userIp)
-            || !$this->controller()
-        ) {
+        if (empty($controller)) {
             return null;
         }
 
         return implode(':', [
-            'tk',
+            'cbr',
             'throttle',
-            $this->controller(),
-            Auth::user()->id ?? 'sys',
-            $userIp,
+            $controller,
         ]);
     }
 
@@ -138,20 +138,10 @@ class CbrRequests
                 return PHPRedis::pttl($throttleKey);
             }
         } catch (\Exception $e) {
-//            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
+            Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
 
             return null;
         }
-    }
-
-    /**
-     * Получим время ожидания до следующего запроса
-     *
-     * @return int
-     */
-    private function getThrottleExpectation() : int
-    {
-        return self::THROTTLE_EXPECTATION;
     }
 
     /**
@@ -173,9 +163,9 @@ class CbrRequests
             }
 
             PHPRedis::set($throttleKey, 1);
-            PHPRedis::pexpire($throttleKey, $this->getThrottleExpectation());
+            PHPRedis::pexpire($throttleKey, self::THROTTLE_EXPECTATION);
         } catch (\Exception $e) {
-//            Log::getMonolog()->withName(__CLASS__ . ':' . __FUNCTION__)->error($e->getMessage());
+            Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
 
             return false;
         }
@@ -194,7 +184,6 @@ class CbrRequests
             && is_array($this->requestParams)
         ) {
             return urldecode(http_build_query($this->requestParams));
-
         } else {
             return [];
         }
@@ -225,9 +214,9 @@ class CbrRequests
      *
      * @return mixed|null
      */
-    private function sendRequest()
+    private function getXml()
     {
-//        $this->syncLog->withName("Cbr request")->info(http_build_query($this->getRequestOptions()));
+        $this->syncLog->withName("Cbr request")->info($this->getFullPath());
 
         try {
             return simplexml_load_file($this->getFullPath());
@@ -248,7 +237,7 @@ class CbrRequests
      * @param string|null $date
      * @return $this
      */
-    public function getCurrenciesValues(string $date = null)
+    public function getCurrenciesValues(string $date = null): CbrRequests
     {
         $params = [];
 
@@ -258,6 +247,23 @@ class CbrRequests
             $params['date_req'] = $date;
         }
 
+        $this->setDefault([
+            'controller' => 'XML_daily.asp',
+        ]);
+
+        $this->requestParams = $params;
+
+        return $this;
+    }
+
+    /**
+     * Получим динамику котировки курса валюты за промежуток между двумя датами
+     *
+     * @param array $params
+     * @return $this
+     */
+    public function getCurrencyDynamics(array $params = []): CbrRequests
+    {
         $this->setDefault([
             'controller' => 'XML_daily.asp',
         ]);
