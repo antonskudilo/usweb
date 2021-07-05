@@ -2,7 +2,7 @@
 
 namespace App\Repositories;
 
-use App\Api\CbrRequests;
+use App\Api\CbrXML;
 
 class CurrencyRepository
 {
@@ -10,7 +10,7 @@ class CurrencyRepository
 
     public function __construct()
     {
-        $this->api = new CbrRequests();
+        $this->api = new CbrXML();
     }
 
     /**
@@ -88,8 +88,48 @@ class CurrencyRepository
         $result = [];
 
         foreach ($currencyItems as $currencyItem) {
-            $currencyId = $currencyItem['attributes']['Date'];
-            $result[$currencyId] = floatval(str_replace(',', '.', $currencyItem['Value']));
+            $date = $currencyItem['attributes']['Date'];
+            $result[$date] = floatval(str_replace(',', '.', $currencyItem['Value']));
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array|false
+     */
+    public function getCurrenciesList()
+    {
+        $xmlObject = $this->api->getCurrenciesList()->send();
+        $result = $this->parseCurrenciesList($xmlObject);
+
+        return $result;
+    }
+
+    /**
+     * @param $xmlObject
+     * @return array|false
+     */
+    public function parseCurrenciesList($xmlObject)
+    {
+        if (empty($xmlObject)) {
+            return false;
+        }
+
+        $responseArray = simpleXmlToArray($xmlObject);
+
+        if (!array_key_exists('Item', $responseArray)) {
+            return false;
+        } else {
+            $currencyItems = $responseArray['Item'];
+        }
+
+        $result = [];
+
+        foreach ($currencyItems as $currencyItem) {
+            $currencyId = $currencyItem['attributes']['ID'];
+            unset($currencyItem['attributes']);
+            $result[$currencyId] = $currencyItem;
         }
 
         return $result;

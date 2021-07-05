@@ -5,9 +5,9 @@ namespace App\Api;
 use Monolog\Logger;
 use Illuminate\Support\Facades\Log;
 use Monolog\Handler\StreamHandler;
-use Illuminate\Support\Facades\Redis as PHPRedis;
+use Illuminate\Support\Facades\Redis;
 
-class CbrRequests
+class CbrXML
 {
     const THROTTLE_EXPECTATION = 1000; // 1 секунда
 
@@ -130,12 +130,12 @@ class CbrRequests
         }
 
         try {
-            if (!PHPRedis::ping()) {
+            if (!Redis::ping()) {
                 throw new \Exception();
             }
 
-            if (PHPRedis::exists($throttleKey)) {
-                return PHPRedis::pttl($throttleKey);
+            if (Redis::exists($throttleKey)) {
+                return Redis::pttl($throttleKey);
             }
         } catch (\Exception $e) {
             Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
@@ -158,12 +158,12 @@ class CbrRequests
         }
 
         try {
-            if (!PHPRedis::ping()) {
+            if (!Redis::ping()) {
                 throw new \Exception();
             }
 
-            PHPRedis::set($throttleKey, 1);
-            PHPRedis::pexpire($throttleKey, self::THROTTLE_EXPECTATION);
+            Redis::set($throttleKey, 1);
+            Redis::pexpire($throttleKey, self::THROTTLE_EXPECTATION);
         } catch (\Exception $e) {
             Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
 
@@ -196,17 +196,20 @@ class CbrRequests
      */
     private function getFullPath()
     {
+        $keyFlag = [
+            $this->baseUri,
+            $this->controller(),
+        ];
+
         $requestOptions = $this->getRequestOptions();
 
         if (!empty($requestOptions)) {
             $requestOptions = '?' . $requestOptions;
+
+            array_push($keyFlag, $requestOptions);
         }
 
-        return join([
-            $this->baseUri,
-            $this->controller(),
-            $requestOptions
-        ]);
+        return join($keyFlag);
     }
 
     /**
@@ -221,11 +224,11 @@ class CbrRequests
         try {
             return simplexml_load_file($this->getFullPath());
         } catch (\Exception $e) {
-            $this->syncLog->withName($this->requestType)->error($e->getMessage());
+            $this->syncLog->withName($this->getFullPath())->error($e->getMessage());
 
             return null;
         } catch (\Throwable $e) {
-            $this->syncLog->withName($this->requestType)->error($e->getMessage());
+            $this->syncLog->withName($this->getFullPath())->error($e->getMessage());
 
             return null;
         }
@@ -234,10 +237,10 @@ class CbrRequests
     /**
      * Получим курс валют на указанную дату
      *
-     * @param string|null $date
+     * @param string|null $date d/m/Y
      * @return $this
      */
-    public function getCurrenciesValues(string $date = null): CbrRequests
+    public function getCurrenciesValues(string $date = null): CbrXML
     {
         $params = [];
 
@@ -260,15 +263,32 @@ class CbrRequests
      * Получим динамику котировки курса валюты за промежуток между двумя датами
      *
      * @param array $params
+     *      ['date_req1']   string  required    date from d/m/Y
+     *      ['date_req2']   string  required    date to d/m/Y
+     *      ['VAL_NM_RQ']   string  required    currency code
      * @return $this
      */
-    public function getCurrencyDynamics(array $params = []): CbrRequests
+    public function getCurrencyDynamics(array $params = []): CbrXML
     {
         $this->setDefault([
             'controller' => 'XML_dynamic.asp',
         ]);
 
         $this->requestParams = $params;
+
+        return $this;
+    }
+
+    /**
+     * Получим список валют
+     *
+     * @return $this
+     */
+    public function getCurrenciesList(): CbrXML
+    {
+        $this->setDefault([
+            'controller' => 'XML_valFull.asp',
+        ]);
 
         return $this;
     }
