@@ -14,7 +14,7 @@ class CurrencyRepository
     }
 
     /**
-     * @param string|null $date
+     * @param string|null $date d/m/Y
      * @return array|false
      */
     public function getCurrenciesValues(string $date = null)
@@ -54,9 +54,44 @@ class CurrencyRepository
 
     /**
      * @param array $params
+     *      ['date_req1']   string  required    date from d/m/Y
+     *      ['date_req2']   string  required    date to d/m/Y
+     *      ['VAL_NM_RQ']   string  required    currency code
+     * @return array|false
      */
     public function getCurrencyDynamics(array $params)
     {
+        $xmlObject = $this->api->getCurrencyDynamics($params)->send();
+        $result = $this->parseCurrencyDynamics($xmlObject);
 
+        return $result;
+    }
+
+    /**
+     * @param $xmlObject
+     * @return array|false
+     */
+    public function parseCurrencyDynamics($xmlObject)
+    {
+        if (empty($xmlObject)) {
+            return false;
+        }
+
+        $responseArray = simpleXmlToArray($xmlObject);
+
+        if (!array_key_exists('Record', $responseArray)) {
+            return false;
+        } else {
+            $currencyItems = $responseArray['Record'];
+        }
+
+        $result = [];
+
+        foreach ($currencyItems as $currencyItem) {
+            $currencyId = $currencyItem['attributes']['Date'];
+            $result[$currencyId] = floatval(str_replace(',', '.', $currencyItem['Value']));
+        }
+
+        return $result;
     }
 }

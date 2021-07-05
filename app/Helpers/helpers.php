@@ -9,6 +9,12 @@ if (!function_exists('simpleXmlToArray')) {
     function simpleXmlToArray($xmlObject, array $out = []) : array
     {
         foreach ($xmlObject as $index => $node) {
+            if (!empty($xmlObject->attributes())) {
+                foreach ($xmlObject->attributes() as $attributeName => $attributeValue) {
+                    $out['attributes'][$attributeName] = $attributeValue->__toString ();
+                }
+            }
+
             if (count($node) === 0) {
                 $out[$node->getName()] = $node->__toString ();
             } else {

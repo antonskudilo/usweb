@@ -265,7 +265,7 @@ class CbrRequests
     public function getCurrencyDynamics(array $params = []): CbrRequests
     {
         $this->setDefault([
-            'controller' => 'XML_daily.asp',
+            'controller' => 'XML_dynamic.asp',
         ]);
 
         $this->requestParams = $params;
