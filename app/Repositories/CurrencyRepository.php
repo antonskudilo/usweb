@@ -20,9 +20,8 @@ class CurrencyRepository
     public function getCurrenciesValues(string $date = null)
     {
         $xmlObject = $this->api->getCurrenciesValues($date)->send();
-        $result = $this->parseCurrenciesValues($xmlObject);
 
-        return $result;
+        return $this->parseCurrenciesValues($xmlObject);
     }
 
     /**

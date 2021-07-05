@@ -2,14 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Repositories\CurrencyRepository;
-use Carbon\Carbon;
-
 class HomeController extends Controller
 {
     public function index()
     {
-        $currencyRepository = new CurrencyRepository();
+//        $currencyRepository = new CurrencyRepository();
 
 //        $test = $currencyRepository->getCurrenciesValues(Carbon::now()->format('d/m/Y'));
 
@@ -24,11 +21,11 @@ class HomeController extends Controller
 //        $testCurrencyDynamics = $currencyRepository->getCurrencyDynamics($testCurrencyDynamicsParams);
 //
 //        dd($testCurrencyDynamics);
+//
+//        $testCurrenciesList = $currencyRepository->getCurrenciesList();
+//
+//        dd($testCurrenciesList);
 
-        $testCurrenciesList = $currencyRepository->getCurrenciesList();
-
-        dd($testCurrenciesList);
-
-//        return view('home.index');
+        return view('home.index');
     }
 }
