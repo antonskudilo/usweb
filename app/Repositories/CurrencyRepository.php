@@ -3,6 +3,10 @@
 namespace App\Repositories;
 
 use App\Api\CbrXML;
+use App\Models\CurrencyValue;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class CurrencyRepository
 {
@@ -14,14 +18,58 @@ class CurrencyRepository
     }
 
     /**
-     * @param string|null $date d/m/Y
+     * @param string|null $dateString
+     * @param bool $recursiveFlag
      * @return array|false
      */
-    public function getCurrenciesValues(string $date = null)
+    public function getCurrenciesValues(string $dateString = null, bool $recursiveFlag = false)
     {
-        $xmlObject = $this->api->getCurrenciesValues($date)->send();
+        if (!$dateString) {
+            $dateString = Carbon::now()->toDateString();
+        }
 
-        return $this->parseCurrenciesValues($xmlObject);
+        if (!(CurrencyValue::byDate($dateString)
+            ->exists())
+        ) {
+            $currenciesValues = new Collection();
+            $date = Carbon::parse($dateString)->format('d/m/Y');
+            $xmlObject = $this->api->getCurrenciesValues($date)->send();
+
+            if (empty($xmlObject)) {
+                return false;
+            }
+
+            $parsedCurrenciesValues = $this->parseCurrenciesValues($xmlObject);
+
+            if (empty($parsedCurrenciesValues)) {
+                return false;
+            }
+
+            foreach ($parsedCurrenciesValues as $cbrId => $value) {
+                try {
+                    $currencyValue = CurrencyValue::updateOrCreate([
+                        'cbr_id' => $cbrId,
+                        'value' => $value,
+                        'date' => $dateString,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
+
+                    return false;
+                }
+
+                $currenciesValues->push($currencyValue);
+            }
+
+            unset($parsedCurrencyValue);
+        }
+
+        if (!$recursiveFlag) {
+            $previousDateString = getPreviousDateStringNotWeekend($dateString);
+            $this->getCurrenciesValues($previousDateString, true);
+        }
+
+        return true;
     }
 
     /**
@@ -35,6 +83,7 @@ class CurrencyRepository
         }
 
         $responseArray = simpleXmlToArray($xmlObject);
+        $result = [];
 
         if (!array_key_exists('Valute', $responseArray)) {
             return false;
@@ -42,10 +91,9 @@ class CurrencyRepository
             $currencyItems = $responseArray['Valute'];
         }
 
-        $result = [];
-
         foreach ($currencyItems as $currencyItem) {
-            $result[$currencyItem['CharCode']] = floatval(str_replace(',', '.', $currencyItem['Value']));
+            $currencyId = $currencyItem['attributes']['ID'];
+            $result[$currencyId] = floatval(str_replace(',', '.', $currencyItem['Value']));
         }
 
         return $result;

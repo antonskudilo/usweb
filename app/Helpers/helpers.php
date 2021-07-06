@@ -1,6 +1,8 @@
 <?php
 
-if (!function_exists('simpleXmlToArray')) {
+use Carbon\Carbon;
+
+if (! function_exists('simpleXmlToArray')) {
     /**
      * @param $xmlObject
      * @param array $out
@@ -23,5 +25,23 @@ if (!function_exists('simpleXmlToArray')) {
         }
 
         return $out;
+    }
+}
+
+
+if (! function_exists('getPreviousDateStringNotWeekend')) {
+    /**
+     * @param string $dateString
+     * @return string
+     */
+    function getPreviousDateStringNotWeekend(string $dateString): string
+    {
+        $previousDate = Carbon::createFromDate($dateString)->subDay();
+
+        if ($previousDate->isWeekend()) {
+            $previousDate = $previousDate->previous('Friday');
+        }
+
+        return $previousDate->toDateString();
     }
 }

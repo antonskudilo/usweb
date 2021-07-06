@@ -2,6 +2,7 @@
 
 namespace App\Api;
 
+use Illuminate\Support\Facades\Request;
 use Monolog\Logger;
 use Illuminate\Support\Facades\Log;
 use Monolog\Handler\StreamHandler;
@@ -113,6 +114,7 @@ class CbrXML
             'cbr',
             'throttle',
             $controller,
+            Request::ip() ?? 'no-ip'
         ]);
     }
 

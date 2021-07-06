@@ -13,6 +13,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', 'HomeController@index')->name('home');
+Route::get('/', 'CurrencyController@index')->name('home');
 
 Route::get('/currencies/get-list', 'CurrencyController@getCurrenciesList')->name('currencies.get-list');
