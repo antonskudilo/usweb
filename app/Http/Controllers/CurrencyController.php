@@ -24,8 +24,14 @@ class CurrencyController extends Controller
                 $currentDateString = Carbon::createFromFormat('d.m.Y', $request->input('date'))->toDateString();
             } catch (\Exception $exception) {
                 return redirect()->route('home')
-                    ->with('statusClass', 'warning')
+                    ->with('statusClass', 'danger')
                     ->withStatus('Указан неверный формат даты');
+            }
+
+            if (Carbon::parse($currentDateString)->isFuture()) {
+                return redirect()->route('home')
+                    ->with('statusClass', 'danger')
+                    ->withStatus('Указана будущая дата');
             }
         } else {
             $currentDateString = Carbon::now()->toDateString();
@@ -38,14 +44,14 @@ class CurrencyController extends Controller
         try {
             if (!(new CurrencyRepository())->getCurrenciesValues($currentDateString)) {
                 return redirect()->route('home')
-                    ->with('statusClass', 'warning')
+                    ->with('statusClass', 'danger')
                     ->withStatus('Данные валют не получены');
             }
         } catch (\Exception $e) {
             Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
 
             return redirect()->route('home')
-                ->with('statusClass', 'warning')
+                ->with('statusClass', 'danger')
                 ->withStatus($e->getMessage());
         }
 
@@ -91,7 +97,7 @@ class CurrencyController extends Controller
 
         if (empty($currenciesList)) {
             return redirect()->route('home')
-                ->with('statusClass', 'warning')
+                ->with('statusClass', 'danger')
                 ->withStatus('Данные валют не получены');
         }
 
@@ -110,7 +116,7 @@ class CurrencyController extends Controller
                 Log::error(__CLASS__ . ':' . __FUNCTION__ . ':' . $e->getMessage());
 
                 return redirect()->route('home')
-                    ->with('statusClass', 'warning')
+                    ->with('statusClass', 'danger')
                     ->withStatus($e->getMessage());
             }
         }
